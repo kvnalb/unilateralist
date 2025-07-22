@@ -1,3 +1,6 @@
+To try out the model, download the code file and run using the NetLogo Desktop App or [NetLogo Web](https://netlogoweb.org/launch#Load)
+
+----
 # Unilateralist
 A NetLogo Model of the Unilateralist's Curse
 **Creator:** Kunal Baldava/@Kunalongithub
