@@ -2,9 +2,8 @@ To try out the model, download the code file and run using the NetLogo Desktop A
 
 ----
 # Unilateralist
+
 A NetLogo Model of the Unilateralist's Curse
-**Creator:** Kunal Baldava/@Kunalongithub
-**Date Created:** July 20 2025
 
 ## WHAT IS IT?
 This model is a high-fidelity replication of the economic game in Experiment 5 from the 2024 preprint "It Only Takes One: The Psychology of Unilateral Decisions" by Lewis et al. It demonstrates the "Unilateralist's Curse," a concept from a 2016 paper by Nick Bostrom, Thomas Douglas, and Anders Sandberg.
