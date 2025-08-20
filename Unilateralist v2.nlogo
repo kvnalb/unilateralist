@@ -56,7 +56,7 @@ to go
   set imposed? false
   set correct? false
   set num-imposers 0
-  set nash-eqb 100 - (55.96 / (group-size ^ 0.73)) ; Power law approximation using data from Lewis et. al.
+  set nash-eqb min (list 100 (max (list 51 round (100 - (55.96 / (group-size ^ 0.73)))))) ; Power law approximation using data from Lewis et. al.
   set true-box one-of ["A" "B"]
 
 
@@ -64,9 +64,9 @@ to go
 
   ask turtles [
 
-    ifelse decision-scenario = "deciding-as-usual" [
+    ifelse decision-scenario != "nash-equilibrium" [
       let raw-threshold (confidence-threshold group-size reward-amount) + random-normal 0 13.5
-      set threshold min (list 100 (max (list 51 raw-threshold))) ; Bell curve approximation using empirical data from Lewis et. al.
+      set threshold min (list 100 (max (list 51 round (raw-threshold)))) ; Bell curve approximation using empirical data from Lewis et. al.
     ] [
       set threshold nash-eqb
     ]
@@ -85,27 +85,56 @@ to go
 
   ]
 
-  ; Step 3: Check whether agents decide to impose(choose box B)
-  ask turtles [
-    ifelse signal-strength >= threshold and signal-direction = "B" [
-      set imposer? true
-      set color orange
-    ] [
-      set imposer? false
-      set color blue
+ ;; SCENARIO: deference-leader
+  if (decision-scenario = "deference-leader") [
+    ask turtles [ set imposer? false ] ; Everyone defaults to abstaining.
+    ask one-of turtles [ ; One random agent is chosen as the leader.
+      if (signal-direction = "B" and signal-strength >= threshold) [
+        set imposer? true
+      ]
     ]
   ]
 
+  ;; SCENARIO: deference-vote
+  if (decision-scenario = "deference-vote") [
+    let votes-for-b count turtles with [signal-direction = "B"]
+    ; The group imposes if and only if there's a majority vote.
+    set imposed? (votes-for-b > (group-size / 2))
+    ; For visualization, we can mark the turtles who voted for B as "imposers", even if the group choses not to impose.
+    ask turtles [ set imposer? false ]
+    if (imposed?) [ set num-imposers votes-for-b ]
+  ]
+
+  ;; SCENARIO: limited-imposers
+  if (decision-scenario = "limited-imposers") [
+    ask turtles [ set imposer? false ] ; Everyone defaults to abstaining.
+    ask n-of round (fraction-active-imposers * group-size / 100) turtles [ ; A subset is chosen to be active.
+      if (signal-direction = "B" and signal-strength >= threshold) [
+        set imposer? true
+      ]
+    ]
+  ]
+  ; -----------------------------------------------------------------
+
   ; Step 4: Update globals based on turtles' choices
-  set imposed? any? turtles with [imposer?]
-  set num-imposers count turtles with [imposer?]
+  ; This logic works for all scenarios except the vote, which sets 'imposed?' directly.
+  if (decision-scenario != "deference-vote") [
+    set imposed? any? turtles with [imposer?]
+    set num-imposers count turtles with [imposer?]
+  ]
+
+  ; For visualization: Update agent colors based on their final 'imposer?' state
+  ask turtles with [imposer?] [ set color orange ]
+  ask turtles with [not imposer?] [ set color blue ]
 
   ; Step 5: Determine if correct box was chosen
   ifelse imposed? [
     if true-box = "B" [ set correct? true ]
-  ] [
+    ] [
     if true-box = "A" [ set correct? true ]
-  ]
+    ]
+
+
 
   ;Step 6: Set result square color and update global trackers
   ask patches with [pxcor > -5 and pxcor < 5 and pycor > -5 and pycor < 5 ] [
@@ -159,7 +188,7 @@ group-size
 group-size
 1
 50
-21.0
+20.0
 1
 1
 NIL
@@ -167,19 +196,19 @@ HORIZONTAL
 
 CHOOSER
 18
-71
+65
 182
-116
+110
 reward-amount
 reward-amount
 "0.01" "1.00"
-0
+1
 
 BUTTON
-16
-200
-181
-233
+18
+208
+183
+241
 NIL
 setup
 NIL
@@ -193,10 +222,10 @@ NIL
 1
 
 BUTTON
-106
-243
-183
-276
+107
+251
+184
+284
 go x100
 repeat 100 [go]
 NIL
@@ -211,9 +240,9 @@ NIL
 
 BUTTON
 17
-243
+251
 93
-276
+284
 NIL
 go
 NIL
@@ -228,13 +257,13 @@ NIL
 
 CHOOSER
 18
-130
+114
 182
-175
+159
 decision-scenario
 decision-scenario
-"deciding-as-usual" "nash-equilibrium"
-0
+"deciding-as-usual" "nash-equilibrium" "deference-leader" "deference-vote" "limited-imposers"
+3
 
 MONITOR
 234
@@ -259,10 +288,10 @@ box-chosen imposed?
 11
 
 MONITOR
-234
-130
+236
+187
 437
-175
+232
 Overconfidence Rate
 (count turtles with [threshold < nash-eqb] / count turtles) * 100
 2
@@ -270,10 +299,10 @@ Overconfidence Rate
 11
 
 PLOT
-11
-293
-211
-443
+10
+299
+210
+449
 Threshold Distribution
 Threshold
 Agents
@@ -324,10 +353,10 @@ PENS
 "default" 1.0 0 -16777216 true "" "plotxy ticks bad-impositions / max list 1 ticks"
 
 PLOT
-235
-292
-435
-442
+234
+298
+434
+448
 Signal Distribution
 Signal
 Agents
@@ -342,23 +371,12 @@ PENS
 "default" 1.0 1 -16777216 true "" "histogram [signal-strength] of turtles"
 
 MONITOR
-234
-183
-436
-228
+236
+239
+438
+284
 Average Signal of Imposers
 mean [signal-strength] of turtles with [imposer?]
-2
-1
-11
-
-MONITOR
-234
-236
-436
-281
-Average Threshold of Imposers
-mean [threshold] of turtles with [imposer?]
 2
 1
 11
@@ -373,6 +391,32 @@ nash-eqb
 2
 1
 11
+
+MONITOR
+235
+133
+437
+178
+Average Threshold of Agents
+(precision (mean [threshold] of turtles) 1)
+17
+1
+11
+
+SLIDER
+17
+164
+183
+197
+fraction-active-imposers
+fraction-active-imposers
+1
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -464,8 +508,9 @@ This model is a faithful implementation of the economic game described in the fo
 1.  **Source Experiment:** Lewis, J., Allen, C., Winter, C., & Caviola, L. (2024). *It Only Takes One: The Psychology of Unilateral Decisions*. [Preprint].
 2.  **Core Concept:** Bostrom, N., Douglas, T., & Sandberg, A. (2016). The Unilateralist's Curse and the Case for a Principle of Conformity. *Social Epistemology*, 30(4), 350-371.
 
-This NetLogo model was created by Kunal Baldava in July 2025, as part of the Introduction to Agent Based Modeling Course by The SantaFe Institute.
+This NetLogo model was created by Kunal Baldava in July 2025, as part of the Introduction to Agent Based Modeling Course by The SantaFe Institute. It is also available at https://github.com/Kunalongithub/unilateralist
 
+MIT License Copyright (c) 2025 Kunal Baldava
 @#$#@#$#@
 default
 true
@@ -776,6 +821,24 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="Win Rate - All Params" repetitions="1000" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>repeat 100 [go]</go>
+    <exitCondition>ticks = 100</exitCondition>
+    <metric>rounds-won / max list 1 ticks</metric>
+    <metric>bad-impositions / max list 1 ticks</metric>
+    <enumeratedValueSet variable="decision-scenario">
+      <value value="&quot;deciding-as-usual&quot;"/>
+      <value value="&quot;nash-equilibrium&quot;"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="group-size" first="1" step="1" last="50"/>
+    <enumeratedValueSet variable="reward-amount">
+      <value value="&quot;1.00&quot;"/>
+      <value value="&quot;0.01&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
