@@ -18,17 +18,8 @@ turtles-own [
   imposer?             ; whether or not the particular agent chooses to impose
 ]
 
-;;;;;;;;;;;;;;;;;;;;;;; Helper Procedures ;;;;;;;;;;;;;;;;;;;;;
 
-; Procedure to base confidence threshold for deciding-as-usual scenario
-to-report confidence-threshold [group stakes]
-  let base-threshold 75.8
-  let stakes-effect ifelse-value (stakes = 1.00) [4.4] [0]
-  let group-effect 0.025 * (group - 3)
-  report base-threshold + stakes-effect + group-effect
-end
-
-; Procerdure to report which box was chosen
+; Helper Procerdure to report which box was chosen
 to-report box-chosen [did-they-impose?]
   ifelse did-they-impose? [report "B"][report "A"]
 end
@@ -66,8 +57,20 @@ to go
   ask turtles [
 
     ifelse decision-scenario != "nash-equilibrium" [
-      let raw-threshold (confidence-threshold group-size reward-amount) + random-normal 0 13.5
-      set threshold min (list 100 (max (list 51 round (raw-threshold)))) ; Bell curve approximation using empirical data from Lewis et. al.
+     let mean-threshold 0
+     let sd-threshold 0
+
+     ifelse (reward-amount = 1.00) [
+        set mean-threshold 78.2
+        set sd-threshold 12.1
+      ] [
+        set mean-threshold 73.8
+        set sd-threshold 14.6
+      ]
+
+      let raw-threshold (mean-threshold + random-normal 0 sd-threshold)
+      set threshold min (list 100 (max (list 51 round (raw-threshold))))
+
     ] [
       set threshold nash-eqb
     ]
@@ -86,6 +89,7 @@ to go
 
   ]
 
+  ; Step 3: Mark the agents who choose Box B.
 
   ;; SCENARIOS: deciding-as-usual and nash-equilibrium
   if (member? decision-scenario ["deciding-as-usual" "nash-equilibrium"]) [
@@ -139,7 +143,6 @@ to go
       ]
     ]
   ]
-  ; -----------------------------------------------------------------
 
   ; Step 4: Update globals based on turtles' choices
   ; This logic works for all scenarios except the vote, which sets 'imposed?' directly.
